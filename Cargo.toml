@@ -1,0 +1,23 @@
+[package]
+name = "lockscan"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+description = "Check the packages a JavaScript lockfile installs against the OSV vulnerability database"
+license = "MIT"
+repository = "https://github.com/mertcanaltin/lockscan"
+readme = "README.md"
+keywords = ["npm", "pnpm", "yarn", "security", "osv"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+clap = { version = "4.6.7", features = ["derive"] }
+semver = "1.0.28"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+ureq = { version = "2", features = ["json"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
