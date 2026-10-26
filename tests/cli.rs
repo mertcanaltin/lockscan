@@ -78,12 +78,11 @@ fn answer(request_line: &str, body: &[u8]) -> Value {
     json!({ "error": "unexpected request" })
 }
 
-fn fixture(name: &str, text: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!(
-        "lockscan-test-{}-{}",
-        std::process::id(),
-        name.replace('.', "-")
-    ));
+/// Writes `text` as `name` in a directory of its own for `test`: the tests run
+/// in parallel, and two of them writing the same path let one read the other's
+/// half-written file.
+fn fixture(test: &str, name: &str, text: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("lockscan-{}-{test}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let file = dir.join(name);
     std::fs::write(&file, text).unwrap();
@@ -109,7 +108,7 @@ fn lockscan(args: &[&str]) -> std::process::Output {
 #[test]
 fn reports_an_affected_package_and_exits_1() {
     let url = fake_osv();
-    let file = fixture("package-lock.json", NPM);
+    let file = fixture("affected", "package-lock.json", NPM);
     let out = lockscan(&[file.to_str().unwrap(), "--osv-url", &url]);
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert_eq!(
@@ -130,7 +129,7 @@ fn reports_an_affected_package_and_exits_1() {
 #[test]
 fn writes_json() {
     let url = fake_osv();
-    let file = fixture("package-lock.json", NPM);
+    let file = fixture("json", "package-lock.json", NPM);
     let out = lockscan(&[file.to_str().unwrap(), "--osv-url", &url, "--json"]);
     let doc: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(doc["packages"], 2);
@@ -143,7 +142,7 @@ fn writes_json() {
 #[test]
 fn ignores_by_alias_and_filters_by_severity() {
     let url = fake_osv();
-    let file = fixture("package-lock.json", NPM);
+    let file = fixture("ignore", "package-lock.json", NPM);
     let ignored = lockscan(&[
         file.to_str().unwrap(),
         "--osv-url",
@@ -173,6 +172,7 @@ fn ignores_by_alias_and_filters_by_severity() {
 #[test]
 fn finds_the_lockfile_in_a_directory_and_lists_packages() {
     let file = fixture(
+        "listdir",
         "yarn.lock",
         "lodash@^4.17.0:\n  version \"4.17.20\"\n\nleft-pad@^1.3.0:\n  version \"1.3.0\"\n",
     );
@@ -188,7 +188,7 @@ fn finds_the_lockfile_in_a_directory_and_lists_packages() {
 fn exits_2_when_it_cannot_scan() {
     let out = lockscan(&["/definitely/not/here"]);
     assert_eq!(out.status.code(), Some(2));
-    let unreachable = fixture("package-lock.json", NPM);
+    let unreachable = fixture("unreachable", "package-lock.json", NPM);
     let out = lockscan(&[
         unreachable.to_str().unwrap(),
         "--osv-url",
